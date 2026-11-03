@@ -927,6 +927,7 @@ async function handleMessage(type, payload) {
         softwareTevHotCaseMode: payload.softwareTevHotCaseMode,
         xfbFastPaths: payload.xfbFastPaths,
         correctTimeDrift: payload.correctTimeDrift,
+        wiimoteMode: payload.wiimoteMode,
         coreLog: payload.coreLog,
         efbDiag: payload.efbDiag,
         jitVerbose: payload.jitVerbose,
@@ -1449,6 +1450,7 @@ async function loadCore({
   softwareTevHotCaseMode: requestedSoftwareTevHotCaseMode = 0,
   xfbFastPaths = 0,
   correctTimeDrift = false,
+  wiimoteMode = 0,
   coreLog = false,
   efbDiag = false,
   jitVerbose = false,
@@ -2094,6 +2096,7 @@ async function loadCore({
   api.setFastSoftwareRaster?.(Math.min(3, Math.max(0, Number(fastSoftwareRaster) || 0)));
   api.setSoftwareTevHotCaseMode?.(softwareTevHotCaseMode);
   api.setXfbFastPaths?.((Number(xfbFastPaths) || 0) & 3);
+  api.setWiimoteMode?.((Number(wiimoteMode) || 0) & 3);
   api.setSoftwareRasterProfileEnabled?.(
     collectMetrics && videoBackend === "Software Renderer" ? 1 : 0
   );
@@ -2306,6 +2309,10 @@ function bindApi(module) {
     setXfbFastPaths:
       typeof module._SetXfbFastPaths === "function"
         ? (flags) => ccall("SetXfbFastPaths", "number", ["number"], [flags | 0])
+        : null,
+    setWiimoteMode:
+      typeof module._SetWiimoteMode === "function"
+        ? (mode) => ccall("SetWiimoteMode", "number", ["number"], [mode | 0])
         : null,
     setSoftwareRasterProfileEnabled:
       typeof module._SetSoftwareRasterProfileEnabled === "function"

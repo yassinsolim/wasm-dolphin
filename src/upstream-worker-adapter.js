@@ -59,6 +59,7 @@ export class UpstreamWorkerAdapter {
     softwareTevHotCaseMode = 0,
     xfbFastPaths = 0,
     correctTimeDrift = false,
+    wiimoteMode = 0,
     coreLog = false,
     efbDiag = false,
     jitVerbose = false,
@@ -154,6 +155,7 @@ export class UpstreamWorkerAdapter {
     this.softwareTevHotCaseMode = (Number(softwareTevHotCaseMode) || 0) & 3;
     this.xfbFastPaths = (Number(xfbFastPaths) || 0) & 3;
     this.correctTimeDrift = Boolean(correctTimeDrift);
+    this.wiimoteMode = (Number(wiimoteMode) || 0) & 3;
     this.coreLog = Boolean(coreLog);
     this.efbDiag = Boolean(efbDiag);
     this.jitVerbose = Boolean(jitVerbose);
@@ -355,6 +357,7 @@ export class UpstreamWorkerAdapter {
       softwareTevHotCaseMode: this.softwareTevHotCaseMode,
       xfbFastPaths: this.xfbFastPaths,
       correctTimeDrift: this.correctTimeDrift,
+      wiimoteMode: this.wiimoteMode,
       coreLog: this.coreLog,
       efbDiag: this.efbDiag,
       jitVerbose: this.jitVerbose,

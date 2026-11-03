@@ -50,6 +50,8 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
   KeyV: "X",
   KeyB: "Y",
   Enter: "START",
+  Digit1: "START",
+  Digit2: "Y",
   KeyQ: "L",
   KeyE: "R",
   KeyC: "Z",

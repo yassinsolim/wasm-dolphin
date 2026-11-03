@@ -39,6 +39,7 @@
 #include "Core/HW/GCKeyboard.h"
 #include "Core/HW/GCPad.h"
 #include "Core/HW/SystemTimers.h"
+#include "Core/HW/Wiimote.h"
 #include "Core/Host.h"
 #include "Core/PowerPC/PowerPC.h"
 #include "Core/State.h"
@@ -646,6 +647,9 @@ void EnsureRuntime()
   Pad::Initialize();
   Pad::InitializeGBA();
   Keyboard::Initialize();
+  // Without this every Wii Remote source stays None and Wii games never see a
+  // remote. Remote 1 defaults to Emulated and reads the browser input bridge.
+  Wiimote::Initialize(Wiimote::InitializeMode::DO_NOT_WAIT_FOR_WIIMOTES);
 
   // §27 savestate-load backend resync. Probe evidence: after
   // State::Load the WebGPU command-ring producer (the dual-core GPU

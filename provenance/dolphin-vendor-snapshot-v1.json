@@ -3,8 +3,8 @@
   "normalization": "git-blob-lf",
   "root": {
     "baseCommit": "e22551eae1c84a7e4d0b6a5c519ef4ed4ef69df1",
-    "resultTree": "dd6f5548aa13de585ec9988130f98aa9d0ce1982",
-    "changedPathCount": 113,
+    "resultTree": "6dd47990ea3c273fa1c9d75d6b8f95657c868267",
+    "changedPathCount": 115,
     "records": [
       {
         "path": "CMakeLists.txt",
@@ -275,6 +275,24 @@
         "resultBlob": "2fa67037f14895d8976ee454e0d19deed4baea29",
         "size": 43120,
         "sha256": "9827badf3f1a2aea477b747d0ea70c19e0756822a40f8333143dad9794b8f061"
+      },
+      {
+        "path": "Source/Core/Core/HW/Wiimote.cpp",
+        "status": "M",
+        "mode": "100644",
+        "baseBlob": "63e2cbf4d22acfdca64aac7ad60457e71153e460",
+        "resultBlob": "6392bf6ca6ee8db4ded202f43adc498870cef1dc",
+        "size": 6773,
+        "sha256": "36c9b3dd7df81d3e7b9c9449a8f1d4e99e88763789680e5692e84a4b498c590b"
+      },
+      {
+        "path": "Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp",
+        "status": "M",
+        "mode": "100644",
+        "baseBlob": "7fc81f6321656abc6b39be846827d363b65d8594",
+        "resultBlob": "61c1ee780c3fa338fcfcc4cb2214fb0ee58f2e3c",
+        "size": 36430,
+        "sha256": "c142c482dd24554904849ae1fa4a2cd33c42b8815aacf45b08b76cf209e7a1dc"
       },
       {
         "path": "Source/Core/Core/IOS/Network/Socket.h",
@@ -1059,5 +1077,5 @@
       ]
     }
   ],
-  "contentSha256": "40fd280c77363ec774d077f92880cfc334dfc38c36129455cafb15258ee53878"
+  "contentSha256": "f844f506d9f4a2cf900f6aa4027c2132412cf2c4ce9c71728a758f5c75b7bfdc"
 }
