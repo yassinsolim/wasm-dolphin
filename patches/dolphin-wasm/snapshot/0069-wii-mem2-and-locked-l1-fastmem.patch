@@ -1,0 +1,676 @@
+diff --git a/Source/Core/Core/PowerPC/CachedInterpreter/CachedInterpreter.cpp b/Source/Core/Core/PowerPC/CachedInterpreter/CachedInterpreter.cpp
+--- a/Source/Core/Core/PowerPC/CachedInterpreter/CachedInterpreter.cpp
++++ b/Source/Core/Core/PowerPC/CachedInterpreter/CachedInterpreter.cpp
+@@ -1951,6 +1951,37 @@ void WriteRamU32BE(u8* ram, u32 offset, u32 value)
+   ram[offset + 3] = static_cast<u8>(value);
+ }
+ 
++constexpr u32 WII_MEM2_PHYSICAL_BASE = 0x10000000;
++
++// Resolves an effective address to a host base/offset when the whole access is
++// inside MEM1 or, on Wii, MEM2. Uses the same standard-BAT 0x3fffffff mask as
++// the original MEM1-only fast paths; MMIO, L1 and out-of-range accesses fail.
++bool ResolveFastRamAccess(Memory::MemoryManager& memory, u32 address, u32 bytes, u8** base,
++                          u32* offset)
++{
++  const u32 physical = address & 0x3fffffff;
++  u8* const ram = memory.GetRAM();
++  const u32 ram_size = memory.GetRamSizeReal();
++  if (ram != nullptr && physical < ram_size && ram_size - physical >= bytes)
++  {
++    *base = ram;
++    *offset = physical;
++    return true;
++  }
++
++  u8* const exram = memory.GetEXRAM();
++  const u32 exram_size = memory.GetExRamSizeReal();
++  const u32 exram_offset = physical - WII_MEM2_PHYSICAL_BASE;
++  if (exram != nullptr && exram_offset < exram_size && exram_size - exram_offset >= bytes)
++  {
++    *base = exram;
++    *offset = exram_offset;
++    return true;
++  }
++
++  return false;
++}
++
+ float PairedQuantizeScale(u32 scale)
+ {
+   return std::ldexp(1.0f, scale < 32 ? static_cast<int>(scale) :
+@@ -2025,13 +2056,11 @@ bool TryFastPairedQuantizedMemory(Core::System& system, PowerPC::PowerPCState& p
+ 
+   const u32 element_bytes = PairedQuantizedElementBytes(type);
+   const u32 bytes = inst.W ? element_bytes : element_bytes * 2;
+-  const u32 offset = address & 0x3fffffff;
+-  const u32 ram_size = system.GetMemory().GetRamSizeReal();
+-  if (offset > ram_size - bytes)
++  u8* ram = nullptr;
++  u32 offset = 0;
++  if (!ResolveFastRamAccess(system.GetMemory(), address, bytes, &ram, &offset))
+     return false;
+ 
+-  u8* ram = system.GetMemory().GetRAM();
+-
+   if (load)
+   {
+     double ps0 = 0.0;
+@@ -2140,7 +2169,8 @@ extern "C" int DolphinWeb_CachedInterpreterFpOp(int state_ptr, u32 inst_hex, u32
+     const u32 scale = load ? ((gqr >> 24) & 0x3f) : ((gqr >> 8) & 0x3f);
+     const u32 element_bytes = PairedQuantizedElementBytes(type);
+     const u32 bytes = inst.W ? element_bytes : element_bytes * 2;
+-    const u32 ram_size = system.GetMemory().GetRamSizeReal();
++    u8* fast_ram = nullptr;
++    u32 fast_offset = 0;
+ 
+     if (!ppc_state.msr.FP)
+       reason = PsqFallbackReason::NoFp;
+@@ -2150,7 +2180,7 @@ extern "C" int DolphinWeb_CachedInterpreterFpOp(int state_ptr, u32 inst_hex, u32
+       reason = PsqFallbackReason::Lsqe;
+     else if (type != QUANTIZE_FLOAT)
+       reason = PsqFallbackReason::NonFloat;
+-    else if ((address & 0x3fffffff) > ram_size - bytes)
++    else if (!ResolveFastRamAccess(system.GetMemory(), address, bytes, &fast_ram, &fast_offset))
+       reason = PsqFallbackReason::OutsideMem1;
+     else if (update && inst.RA == 0)
+       reason = PsqFallbackReason::UpdateRaZero;
+@@ -2511,6 +2541,9 @@ struct WasmStateLayout
+   u32 ram_size_real;
+   u32 l1_base;
+   u32 l1_size;
++  // Wii MEM2 (physical 0x10000000). exram_size_real == 0 means MEM1-only codegen.
++  u32 exram_base;
++  u32 exram_size_real;
+ };
+ 
+ constexpr u32 WASM_IMPORT_FASTCHECK_GPFIFO_INDEX = 14;
+@@ -2568,6 +2601,10 @@ static WasmGprRegCache s_gpr_rc;
+ // access. Scoped to 32-bit D-form (lwz/lwzu/stw/stwu); other widths in a group
+ // still emit their existing checked path (counted as "slow").
+ constexpr u32 WASM_FMH_FLAG_LOCAL = 40;  // i32 scratch local appended after GPR locals 8..39
++// Host address of the last RAM fast-path check (EmitIsRamAddressForSize). MEM1-only
++// codegen keeps the masked physical offset here; MEM2-capable codegen keeps the full
++// host pointer so EmitRamAddress needs no further translation.
++constexpr u32 WASM_HOST_ADDR_LOCAL = 41;
+ struct WasmFastmemHoistPlan
+ {
+   bool active = false;
+@@ -3525,22 +3562,51 @@ void EmitSetEffectiveAddressXLocal(std::vector<u8>& body, const WasmStateLayout&
+   EmitLocalSet(body, 1);
+ }
+ 
+-void EmitIsMem1Address(std::vector<u8>& body, const WasmStateLayout& layout)
++bool HasWasmMem2Fastmem(const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  EmitI32Const(body, layout.ram_size_real - sizeof(u32));
+-  body.push_back(0x4d);
++  return layout.exram_size_real != 0;
+ }
+ 
+-void EmitIsMem1AddressForSize(std::vector<u8>& body, const WasmStateLayout& layout, u32 bytes)
++// Leaves "the `bytes`-wide access at EA (local 1) is in fast RAM" on the stack.
++// With MEM2 enabled it also stores the host address in WASM_HOST_ADDR_LOCAL, so
++// every EmitRamAddress use must be dominated by this check on the same EA.
++// MEM1-only (GameCube) layouts emit exactly the original MEM1 check.
++void EmitIsRamAddressForSize(std::vector<u8>& body, const WasmStateLayout& layout, u32 bytes)
+ {
+   EmitLocalGet(body, 1);
+   EmitI32Const(body, 0x3fffffff);
+   body.push_back(0x71);
++  if (!HasWasmMem2Fastmem(layout))
++  {
++    EmitI32Const(body, layout.ram_size_real - bytes);
++    body.push_back(0x4d);
++    return;
++  }
++
++  body.push_back(0x22);  // local.tee host = physical
++  EmitU32Leb(body, WASM_HOST_ADDR_LOCAL);
+   EmitI32Const(body, layout.ram_size_real - bytes);
+   body.push_back(0x4d);
++  body.push_back(0x04);  // if (result i32): MEM1
++  body.push_back(0x7f);
++  EmitLocalGet(body, WASM_HOST_ADDR_LOCAL);
++  EmitI32Const(body, layout.ram_base);
++  body.push_back(0x6a);
++  EmitLocalSet(body, WASM_HOST_ADDR_LOCAL);
++  EmitI32Const(body, 1);
++  body.push_back(0x05);  // else: MEM2
++  EmitLocalGet(body, WASM_HOST_ADDR_LOCAL);
++  EmitI32Const(body, WII_MEM2_PHYSICAL_BASE);
++  body.push_back(0x6b);
++  body.push_back(0x22);  // local.tee host = physical - MEM2 base
++  EmitU32Leb(body, WASM_HOST_ADDR_LOCAL);
++  EmitI32Const(body, layout.exram_size_real - bytes);
++  body.push_back(0x4d);
++  EmitLocalGet(body, WASM_HOST_ADDR_LOCAL);
++  EmitI32Const(body, layout.exram_base);
++  body.push_back(0x6a);
++  EmitLocalSet(body, WASM_HOST_ADDR_LOCAL);
++  body.push_back(0x0b);
+ }
+ 
+ void EmitIsL1CacheAddressForSize(std::vector<u8>& body, const WasmStateLayout& layout, u32 bytes)
+@@ -3554,13 +3620,9 @@ void EmitIsL1CacheAddressForSize(std::vector<u8>& body, const WasmStateLayout& l
+   body.push_back(0x71);
+ }
+ 
+-void EmitIsMem1LineAddress(std::vector<u8>& body, const WasmStateLayout& layout)
++void EmitIsRamLineAddress(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  EmitI32Const(body, layout.ram_size_real - 32);
+-  body.push_back(0x4d);
++  EmitIsRamAddressForSize(body, layout, 32);
+ }
+ 
+ void EmitIsOutsideLowDcbzHackRange(std::vector<u8>& body)
+@@ -3574,17 +3636,54 @@ void EmitIsOutsideLowDcbzHackRange(std::vector<u8>& body)
+   body.push_back(0x72);
+ }
+ 
+-void EmitRamOffset(std::vector<u8>& body)
++// MEM1 host address computed straight from EA. Only for the fastmem-hoist path,
++// whose group range check proves MEM1 bounds without EmitIsRamAddressForSize.
++void EmitMem1RamAddress(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
++  EmitI32Const(body, layout.ram_base);
+   EmitLocalGet(body, 1);
+   EmitI32Const(body, 0x3fffffff);
+   body.push_back(0x71);
++  body.push_back(0x6a);
+ }
+ 
+ void EmitRamAddress(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
++  if (HasWasmMem2Fastmem(layout))
++    EmitLocalGet(body, WASM_HOST_ADDR_LOCAL);
++  else
++    EmitMem1RamAddress(body, layout);
++}
++
++// Check/address pair for the *MaybeDirect emitters. MEM1-only layouts keep the
++// original form that caches the physical offset in scratch local 3.
++void EmitMaybeDirectRamCheck(std::vector<u8>& body, const WasmStateLayout& layout, u32 bytes)
++{
++  if (HasWasmMem2Fastmem(layout))
++  {
++    EmitIsRamAddressForSize(body, layout, bytes);
++    return;
++  }
++
++  EmitLocalGet(body, 1);
++  EmitI32Const(body, 0x3fffffff);
++  body.push_back(0x71);
++  body.push_back(0x22);
++  EmitU32Leb(body, 3);
++  EmitI32Const(body, layout.ram_size_real - bytes);
++  body.push_back(0x4d);
++}
++
++void EmitMaybeDirectRamAddress(std::vector<u8>& body, const WasmStateLayout& layout)
++{
++  if (HasWasmMem2Fastmem(layout))
++  {
++    EmitLocalGet(body, WASM_HOST_ADDR_LOCAL);
++    return;
++  }
++
+   EmitI32Const(body, layout.ram_base);
+-  EmitRamOffset(body);
++  EmitLocalGet(body, 3);
+   body.push_back(0x6a);
+ }
+ 
+@@ -3637,9 +3736,9 @@ void EmitBswap16FromLocal(std::vector<u8>& body, u32 local_index)
+   body.push_back(0x72);
+ }
+ 
+-void EmitLoadU32BigEndianFromRamAddress(std::vector<u8>& body, const WasmStateLayout& layout)
++void EmitLoadU32BigEndianFromMem1Address(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitRamAddress(body, layout);
++  EmitMem1RamAddress(body, layout);
+   body.push_back(0x28);
+   body.push_back(0x00);
+   EmitU32Leb(body, 0);
+@@ -3690,11 +3789,11 @@ void EmitLoadU16BigEndianFromRamAddressOffset(std::vector<u8>& body,
+   EmitBswap16FromLocal(body, 2);
+ }
+ 
+-void EmitStoreU32BigEndianToRamAddress(std::vector<u8>& body, const WasmStateLayout& layout)
++void EmitStoreU32BigEndianToMem1Address(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+   EmitBswap32FromLocal(body, 2);
+   EmitLocalSet(body, 3);
+-  EmitRamAddress(body, layout);
++  EmitMem1RamAddress(body, layout);
+   EmitLocalGet(body, 3);
+   body.push_back(0x36);
+   body.push_back(0x00);
+@@ -3792,18 +3891,10 @@ void EmitStoreZeroU32ToRamAddress(std::vector<u8>& body, const WasmStateLayout&
+ 
+ void EmitReadU32MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  body.push_back(0x22);
+-  EmitU32Leb(body, 3);
+-  EmitI32Const(body, layout.ram_size_real - sizeof(u32));
+-  body.push_back(0x4d);
++  EmitMaybeDirectRamCheck(body, layout, sizeof(u32));
+   body.push_back(0x04);
+   body.push_back(0x7f);
+-  EmitI32Const(body, layout.ram_base);
+-  EmitLocalGet(body, 3);
+-  body.push_back(0x6a);
++  EmitMaybeDirectRamAddress(body, layout);
+   body.push_back(0x28);
+   body.push_back(0x00);
+   EmitU32Leb(body, 0);
+@@ -3819,18 +3910,10 @@ void EmitReadU32MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout
+ 
+ void EmitReadU8MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  body.push_back(0x22);
+-  EmitU32Leb(body, 3);
+-  EmitI32Const(body, layout.ram_size_real - sizeof(u8));
+-  body.push_back(0x4d);
++  EmitMaybeDirectRamCheck(body, layout, sizeof(u8));
+   body.push_back(0x04);
+   body.push_back(0x7f);
+-  EmitI32Const(body, layout.ram_base);
+-  EmitLocalGet(body, 3);
+-  body.push_back(0x6a);
++  EmitMaybeDirectRamAddress(body, layout);
+   body.push_back(0x2d);
+   body.push_back(0x00);
+   EmitU32Leb(body, 0);
+@@ -3844,18 +3927,10 @@ void EmitReadU8MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout)
+ 
+ void EmitReadU16MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  body.push_back(0x22);
+-  EmitU32Leb(body, 3);
+-  EmitI32Const(body, layout.ram_size_real - sizeof(u16));
+-  body.push_back(0x4d);
++  EmitMaybeDirectRamCheck(body, layout, sizeof(u16));
+   body.push_back(0x04);
+   body.push_back(0x7f);
+-  EmitI32Const(body, layout.ram_base);
+-  EmitLocalGet(body, 3);
+-  body.push_back(0x6a);
++  EmitMaybeDirectRamAddress(body, layout);
+   body.push_back(0x2f);
+   body.push_back(0x00);
+   EmitU32Leb(body, 0);
+@@ -3885,20 +3960,12 @@ void EmitReadS16MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout
+ 
+ void EmitWriteU32MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  body.push_back(0x22);
+-  EmitU32Leb(body, 3);
+-  EmitI32Const(body, layout.ram_size_real - sizeof(u32));
+-  body.push_back(0x4d);
++  EmitMaybeDirectRamCheck(body, layout, sizeof(u32));
+   body.push_back(0x04);
+   body.push_back(0x40);
+   EmitBswap32FromLocal(body, 2);
+   EmitLocalSet(body, 2);
+-  EmitI32Const(body, layout.ram_base);
+-  EmitLocalGet(body, 3);
+-  body.push_back(0x6a);
++  EmitMaybeDirectRamAddress(body, layout);
+   EmitLocalGet(body, 2);
+   body.push_back(0x36);
+   body.push_back(0x00);
+@@ -3914,18 +3981,10 @@ void EmitWriteU32MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layou
+ 
+ void EmitWriteU8MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  body.push_back(0x22);
+-  EmitU32Leb(body, 3);
+-  EmitI32Const(body, layout.ram_size_real - sizeof(u8));
+-  body.push_back(0x4d);
++  EmitMaybeDirectRamCheck(body, layout, sizeof(u8));
+   body.push_back(0x04);
+   body.push_back(0x40);
+-  EmitI32Const(body, layout.ram_base);
+-  EmitLocalGet(body, 3);
+-  body.push_back(0x6a);
++  EmitMaybeDirectRamAddress(body, layout);
+   EmitLocalGet(body, 2);
+   body.push_back(0x3a);
+   body.push_back(0x00);
+@@ -3941,20 +4000,12 @@ void EmitWriteU8MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout
+ 
+ void EmitWriteU16MaybeDirect(std::vector<u8>& body, const WasmStateLayout& layout)
+ {
+-  EmitLocalGet(body, 1);
+-  EmitI32Const(body, 0x3fffffff);
+-  body.push_back(0x71);
+-  body.push_back(0x22);
+-  EmitU32Leb(body, 3);
+-  EmitI32Const(body, layout.ram_size_real - sizeof(u16));
+-  body.push_back(0x4d);
++  EmitMaybeDirectRamCheck(body, layout, sizeof(u16));
+   body.push_back(0x04);
+   body.push_back(0x40);
+   EmitBswap16FromLocal(body, 2);
+   EmitLocalSet(body, 2);
+-  EmitI32Const(body, layout.ram_base);
+-  EmitLocalGet(body, 3);
+-  body.push_back(0x6a);
++  EmitMaybeDirectRamAddress(body, layout);
+   EmitLocalGet(body, 2);
+   body.push_back(0x3b);
+   body.push_back(0x00);
+@@ -4014,7 +4065,7 @@ void EmitFmhReadU32(std::vector<u8>& body, const WasmStateLayout& layout)
+   EmitLocalGet(body, WASM_FMH_FLAG_LOCAL);
+   body.push_back(0x04);  // if
+   body.push_back(0x7f);  // (result i32)
+-  EmitLoadU32BigEndianFromRamAddress(body, layout);
++  EmitLoadU32BigEndianFromMem1Address(body, layout);
+   body.push_back(0x05);  // else
+   EmitReadU32MaybeDirect(body, layout);
+   body.push_back(0x0b);  // end
+@@ -4027,7 +4078,7 @@ void EmitFmhWriteU32(std::vector<u8>& body, const WasmStateLayout& layout)
+   EmitLocalGet(body, WASM_FMH_FLAG_LOCAL);
+   body.push_back(0x04);  // if
+   body.push_back(0x40);  // (void)
+-  EmitStoreU32BigEndianToRamAddress(body, layout);
++  EmitStoreU32BigEndianToMem1Address(body, layout);
+   body.push_back(0x05);  // else
+   EmitWriteU32MaybeDirect(body, layout);
+   body.push_back(0x0b);  // end
+@@ -4425,7 +4476,7 @@ void EmitAlignedFloatFastPathCondition(std::vector<u8>& body, const WasmStateLay
+   if (l1_cache)
+     EmitIsL1CacheAddressForSize(body, layout, bytes);
+   else
+-    EmitIsMem1AddressForSize(body, layout, bytes);
++    EmitIsRamAddressForSize(body, layout, bytes);
+   body.push_back(0x71);
+ }
+ 
+@@ -4684,7 +4735,7 @@ void EmitMultipleWordMemory(std::vector<u8>& body, const WasmStateLayout& layout
+   body.push_back(0x45);
+   body.push_back(0x71);
+ 
+-  EmitIsMem1AddressForSize(body, layout, bytes);
++  EmitIsRamAddressForSize(body, layout, bytes);
+   body.push_back(0x71);
+ 
+   body.push_back(0x04);
+@@ -5118,7 +5169,7 @@ bool IsPpcWasmSpecializedFpuInstruction(UGeckoInstruction inst)
+ }
+ 
+ void EmitPsqFloatFastPathCondition(std::vector<u8>& body, const WasmStateLayout& layout,
+-                                   UGeckoInstruction inst, bool store)
++                                   UGeckoInstruction inst, bool store, bool l1_cache)
+ {
+   EmitStateLoadU32(body, layout.msr_offset);
+   EmitI32Const(body, 1u << 13);
+@@ -5150,7 +5201,10 @@ void EmitPsqFloatFastPathCondition(std::vector<u8>& body, const WasmStateLayout&
+   body.push_back(0x45);
+   body.push_back(0x71);
+ 
+-  EmitIsMem1AddressForSize(body, layout, inst.W ? sizeof(u32) : sizeof(u64));
++  if (l1_cache)
++    EmitIsL1CacheAddressForSize(body, layout, inst.W ? sizeof(u32) : sizeof(u64));
++  else
++    EmitIsRamAddressForSize(body, layout, inst.W ? sizeof(u32) : sizeof(u64));
+   body.push_back(0x71);
+ }
+ 
+@@ -5206,7 +5260,7 @@ void EmitPsqTypeScaleFastPathCondition(std::vector<u8>& body, const WasmStateLay
+   if (l1_cache)
+     EmitIsL1CacheAddressForSize(body, layout, inst.W ? element_bytes : element_bytes * 2);
+   else
+-    EmitIsMem1AddressForSize(body, layout, inst.W ? element_bytes : element_bytes * 2);
++    EmitIsRamAddressForSize(body, layout, inst.W ? element_bytes : element_bytes * 2);
+   body.push_back(0x71);
+ }
+ 
+@@ -5247,23 +5301,61 @@ void EmitPsqGatherPipeFloatStoreCondition(std::vector<u8>& body, const WasmState
+ }
+ 
+ void EmitLoadPsqFloatLane(std::vector<u8>& body, const WasmStateLayout& layout, u32 fd, u32 lane,
+-                          u32 byte_offset)
++                          u32 byte_offset, bool l1_cache)
+ {
+   EmitStateStoreU32Prefix(body);
+-  EmitLoadU32BigEndianFromRamAddressOffset(body, layout, byte_offset);
++  if (l1_cache)
++    EmitLoadU32BigEndianFromL1AddressOffset(body, layout, byte_offset);
++  else
++    EmitLoadU32BigEndianFromRamAddressOffset(body, layout, byte_offset);
+   body.push_back(0xbe);
+   body.push_back(0xbb);
+   EmitStateStoreF64Suffix(body, PsOffset(layout, fd, lane));
+ }
+ 
+ void EmitStorePsqFloatLane(std::vector<u8>& body, const WasmStateLayout& layout, u32 fs, u32 lane,
+-                           u32 byte_offset)
++                           u32 byte_offset, bool l1_cache)
+ {
+   EmitStateLoadF64(body, PsOffset(layout, fs, lane));
+   body.push_back(0xb6);
+   body.push_back(0xbc);
+   EmitLocalSet(body, 2);
+-  EmitStoreU32BigEndianToRamAddressOffset(body, layout, byte_offset);
++  if (l1_cache)
++    EmitStoreU32BigEndianToL1AddressOffset(body, layout, byte_offset);
++  else
++    EmitStoreU32BigEndianToRamAddressOffset(body, layout, byte_offset);
++}
++
++void EmitPsqFloatLanes(std::vector<u8>& body, const WasmStateLayout& layout,
++                       UGeckoInstruction inst, bool load, bool update, bool l1_cache)
++{
++  if (load)
++  {
++    EmitLoadPsqFloatLane(body, layout, inst.RD, 0, 0, l1_cache);
++    if (inst.W)
++    {
++      EmitStateStoreU32Prefix(body);
++      EmitF64ConstBits(body, UINT64_C(0x3ff0000000000000));
++      EmitStateStoreF64Suffix(body, PsOffset(layout, inst.RD, 1));
++    }
++    else
++    {
++      EmitLoadPsqFloatLane(body, layout, inst.RD, 1, sizeof(u32), l1_cache);
++    }
++  }
++  else
++  {
++    EmitStorePsqFloatLane(body, layout, inst.RS, 0, 0, l1_cache);
++    if (!inst.W)
++      EmitStorePsqFloatLane(body, layout, inst.RS, 1, sizeof(u32), l1_cache);
++  }
++
++  if (update)
++  {
++    EmitStateStoreU32Prefix(body);
++    EmitLocalGet(body, 1);
++    EmitStateStoreU32Suffix(body, GprOffset(layout, inst.RA));
++  }
+ }
+ 
+ void EmitStorePsqFloatToGatherPipeLane(std::vector<u8>& body, const WasmStateLayout& layout,
+@@ -5336,37 +5428,17 @@ void EmitPairedQuantizedFloatMemory(std::vector<u8>& body, const WasmStateLayout
+   EmitEffectiveAddress12(body, layout, inst, update);
+   EmitLocalSet(body, 1);
+ 
+-  EmitPsqFloatFastPathCondition(body, layout, inst, !load);
++  EmitPsqFloatFastPathCondition(body, layout, inst, !load, false);
+   body.push_back(0x04);
+   body.push_back(0x40);
++  EmitPsqFloatLanes(body, layout, inst, load, update, false);
+ 
+-  if (load)
+-  {
+-    EmitLoadPsqFloatLane(body, layout, inst.RD, 0, 0);
+-    if (inst.W)
+-    {
+-      EmitStateStoreU32Prefix(body);
+-      EmitF64ConstBits(body, UINT64_C(0x3ff0000000000000));
+-      EmitStateStoreF64Suffix(body, PsOffset(layout, inst.RD, 1));
+-    }
+-    else
+-    {
+-      EmitLoadPsqFloatLane(body, layout, inst.RD, 1, sizeof(u32));
+-    }
+-  }
+-  else
+-  {
+-    EmitStorePsqFloatLane(body, layout, inst.RS, 0, 0);
+-    if (!inst.W)
+-      EmitStorePsqFloatLane(body, layout, inst.RS, 1, sizeof(u32));
+-  }
+-
+-  if (update)
+-  {
+-    EmitStateStoreU32Prefix(body);
+-    EmitLocalGet(body, 1);
+-    EmitStateStoreU32Suffix(body, GprOffset(layout, inst.RA));
+-  }
++  // Locked L1 cache (0xE0000000) scratchpad; Wii games keep hot psq data here.
++  body.push_back(0x05);
++  EmitPsqFloatFastPathCondition(body, layout, inst, !load, true);
++  body.push_back(0x04);
++  body.push_back(0x40);
++  EmitPsqFloatLanes(body, layout, inst, load, update, true);
+ 
+   body.push_back(0x05);
+   if (!load)
+@@ -5420,7 +5492,8 @@ void EmitPairedQuantizedFloatMemory(std::vector<u8>& body, const WasmStateLayout
+   body.push_back(0x0b);
+   if (!load)
+     body.push_back(0x0b);
+-  body.push_back(0x0b);
++  body.push_back(0x0b);  // L1 float
++  body.push_back(0x0b);  // RAM float
+ }
+ 
+ void EmitDcbz(std::vector<u8>& body, const WasmStateLayout& layout, const PPCAnalyst::CodeOp& op,
+@@ -5440,7 +5513,7 @@ void EmitDcbz(std::vector<u8>& body, const WasmStateLayout& layout, const PPCAna
+   EmitStateLoadU8(body, layout.dcache_enabled_offset);
+   body.push_back(0x45);
+   body.push_back(0x71);
+-  EmitIsMem1LineAddress(body, layout);
++  EmitIsRamLineAddress(body, layout);
+   body.push_back(0x71);
+   EmitIsOutsideLowDcbzHackRange(body);
+   body.push_back(0x71);
+@@ -7517,11 +7590,12 @@ std::vector<u8> BuildWasmCachedInterpreterBlock(std::span<const PPCAnalyst::Code
+   // Leading local-group count bumped 4 → 5. WASM locals are zero-initialised;
+   // the prologue below overwrites the referenced ones with their live values.
+   // §28cz — when the fastmem-hoist plan is active for this block, append a 6th
+-  // group `0x01, 0x7f` (one i32 at index WASM_FMH_FLAG_LOCAL=40, the per-group
+-  // range-check flag) and bump the leading group count 5 → 6. When the plan is
+-  // inactive the locals section is byte-identical to today (no extra local).
+-  std::vector<u8> body = s_fmh_plan.active
+-      ? std::vector<u8>{0x06, 0x03, 0x7f, 0x02, 0x7e, 0x01, 0x7c, 0x01, 0x7f, 0x20, 0x7f, 0x01, 0x7f}
++  // group (index WASM_FMH_FLAG_LOCAL=40, the per-group range-check flag) and bump
++  // the leading group count 5 → 6. Wii MEM2 fastmem also needs that 6th group for
++  // WASM_HOST_ADDR_LOCAL=41, so the group declares two i32 locals (40 and 41).
++  // When neither is needed the locals section is byte-identical to the original.
++  std::vector<u8> body = (s_fmh_plan.active || HasWasmMem2Fastmem(layout))
++      ? std::vector<u8>{0x06, 0x03, 0x7f, 0x02, 0x7e, 0x01, 0x7c, 0x01, 0x7f, 0x20, 0x7f, 0x02, 0x7f}
+       : std::vector<u8>{0x05, 0x03, 0x7f, 0x02, 0x7e, 0x01, 0x7c, 0x01, 0x7f, 0x20, 0x7f};
+ 
+   // §28cx C1: set up the GPR register cache for this block, then eagerly load
+@@ -9060,11 +9134,10 @@ static bool TryFastRamWordLoadStore(Core::System& system, PowerPC::PowerPCState&
+                 ((update || inst.RA) ? ppc_state.gpr[inst.RA] + u32(inst.SIMM_16) :
+                                        u32(inst.SIMM_16));
+ 
+-  u8* ram = system.GetMemory().GetRAM();
+-  const u32 offset = address & 0x3fffffff;
+-  const u32 ram_size = system.GetMemory().GetRamSizeReal();
+-  const bool in_ram = !ppc_state.msr.LE && ram != nullptr && offset < ram_size &&
+-                      ram_size - offset >= sizeof(u32);
++  u8* ram = nullptr;
++  u32 offset = 0;
++  const bool in_ram = !ppc_state.msr.LE &&
++                      ResolveFastRamAccess(system.GetMemory(), address, sizeof(u32), &ram, &offset);
+ 
+   if (load)
+   {
+@@ -9137,12 +9210,11 @@ static bool TryFastRamByteHalfLoadStore(Core::System& system, PowerPC::PowerPCSt
+                 ((update || inst.RA) ? ppc_state.gpr[inst.RA] + u32(inst.SIMM_16) :
+                                        u32(inst.SIMM_16));
+ 
+-  u8* ram = system.GetMemory().GetRAM();
+-  const u32 offset = address & 0x3fffffff;
+-  const u32 ram_size = system.GetMemory().GetRamSizeReal();
+   const u32 bytes = (load_half || store_half) ? sizeof(u16) : sizeof(u8);
+-  const bool in_ram = !ppc_state.msr.LE && ram != nullptr && offset < ram_size &&
+-                      ram_size - offset >= bytes;
++  u8* ram = nullptr;
++  u32 offset = 0;
++  const bool in_ram = !ppc_state.msr.LE &&
++                      ResolveFastRamAccess(system.GetMemory(), address, bytes, &ram, &offset);
+ 
+   if (load_byte)
+   {
+@@ -9209,11 +9281,10 @@ static bool TryFastRamMultiwordLoadStore(Core::System& system, PowerPC::PowerPCS
+       inst.RA ? ppc_state.gpr[inst.RA] + u32(inst.SIMM_16) : u32(inst.SIMM_16);
+   const u32 register_count = 32 - inst.RD;
+   const u32 bytes = register_count * sizeof(u32);
+-  u8* ram = system.GetMemory().GetRAM();
+-  const u32 offset = start_address & 0x3fffffff;
+-  const u32 ram_size = system.GetMemory().GetRamSizeReal();
+-  const bool in_ram = !ppc_state.msr.LE && ram != nullptr && offset < ram_size &&
+-                      ram_size - offset >= bytes;
++  u8* ram = nullptr;
++  u32 offset = 0;
++  const bool in_ram = !ppc_state.msr.LE &&
++                      ResolveFastRamAccess(system.GetMemory(), start_address, bytes, &ram, &offset);
+ 
+   if (load)
+   {
+@@ -9571,12 +9642,11 @@ static bool TryFastRamFloatLoadStore(Core::System& system, PowerPC::PowerPCState
+     return true;
+   }
+ 
+-  u8* ram = system.GetMemory().GetRAM();
+-  const u32 offset = address & 0x3fffffff;
+-  const u32 ram_size = system.GetMemory().GetRamSizeReal();
+   const u32 bytes = load_double ? sizeof(u64) : sizeof(u32);
+-  const bool in_ram =
+-      !ppc_state.msr.LE && ram != nullptr && offset < ram_size && ram_size - offset >= bytes;
++  u8* ram = nullptr;
++  u32 offset = 0;
++  const bool in_ram = !ppc_state.msr.LE &&
++                      ResolveFastRamAccess(system.GetMemory(), address, bytes, &ram, &offset);
+ 
+   if (load_single)
+   {
+@@ -11015,6 +11085,8 @@ bool CachedInterpreter::TryWriteWasmBlock(u32 nextPC)
+       m_system.GetMemory().GetRamSizeReal(),
+       static_cast<u32>(reinterpret_cast<std::uintptr_t>(m_system.GetMemory().GetL1Cache())),
+       m_system.GetMemory().GetL1CacheSize(),
++      static_cast<u32>(reinterpret_cast<std::uintptr_t>(m_system.GetMemory().GetEXRAM())),
++      m_system.GetMemory().GetEXRAM() != nullptr ? m_system.GetMemory().GetExRamSizeReal() : 0,
+   };
+   const bool write_npc =
+       did_merge ? merge_write_npc : (compiled_entire_block && !compiled_block_ends_with_branch);
