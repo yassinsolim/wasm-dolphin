@@ -1,61 +1,45 @@
 {
   "schemaVersion": 1,
-  "createdAt": "2026-09-11T23:43:55.389Z",
-  "coreId": "sha256:d7395b3a94080f5b7d08a0522f59096007419d117b7b0eb868246429adee6f5c",
+  "createdAt": "2026-11-03T10:29:45.011Z",
+  "coreId": "sha256:517dbbc4df9cea6f07dd8b2ad0752610840e8759eeaaa2ae78ccb4a35c6e8e7f",
   "repository": {
-    "commit": "1f2e571b2d07e6097aae08f5784a1ebc2b517067",
-    "status": "M cores/dolphin/dolphin-core-upstream.js\n M cores/dolphin/dolphin-core-upstream.wasm\n M provenance/dolphin-source.lock.json\n M provenance/dolphin-vendor-snapshot-v1.json\n M src/upstream-discio-worker.js\n?? patches/dolphin-wasm/snapshot/0066-jit-retry-deferred-blocks-and-apply-policy.patch\n?? patches/dolphin-wasm/snapshot/0067-cached-interpreter-static-exit-links.patch\n?? tests/cached-interpreter-static-exit-links.test.mjs\n?? tests/jit-deferred-compile.test.mjs\n?? tests/jit-fuse-status.test.mjs\n?? tests/jit-pause-timing.test.mjs\n?? tests/native/static-exit-links/build-cache.py\n?? tests/native/static-exit-links/build-callbacks.py\n?? tests/native/static-exit-links/build-gates.py\n?? tests/native/static-exit-links/build-helpers.py\n?? tests/native/static-exit-links/build-stats.py\n?? tests/native/static-exit-links/cache.template.cpp\n?? tests/native/static-exit-links/callback-declarations.inc\n?? tests/native/static-exit-links/callback-state.inc\n?? tests/native/static-exit-links/callback.template.cpp\n?? tests/native/static-exit-links/cases.json\n?? tests/native/static-exit-links/extract-base.py\n?? tests/native/static-exit-links/gate.template.cpp\n?? tests/native/static-exit-links/helper-state.inc\n?? tests/native/static-exit-links/helper.template.cpp\n?? tests/native/static-exit-links/run-header.py\n?? tests/native/static-exit-links/run.py\n?? tests/native/static-exit-links/stats.template.cpp\n?? tests/native/static-exit-links/test-header.cpp\n?? tests/native/static-exit-links/test-platform.h\n?? tests/native/static-exit-links/test_support.py",
+    "commit": "7e38409ace3dda709c178312ff63fd92a3653cc7",
+    "status": "M README.md\n M core/upstream/dolphin_web_core.cpp\n M core/upstream/dolphin_web_discio.cpp\n M cores/dolphin/dolphin-core-upstream.build.json\n M cores/dolphin/dolphin-core-upstream.js\n M cores/dolphin/dolphin-core-upstream.wasm\n M provenance/dolphin-core-abi-v1.json\n M provenance/dolphin-source.lock.json\n M provenance/dolphin-vendor-snapshot-v1.json\n M src/core-host.js\n M src/input.js\n M src/upstream-discio-worker.js\n M src/upstream-main-thread-adapter.js\n M src/upstream-worker-adapter.js\n M src/upstream-worker-protocol.js\n M tests/dolphin-provenance.test.mjs\n?? patches/dolphin-wasm/snapshot/0068-web-wiimote-input.patch",
     "cleanTree": false,
     "dirtyBuildOverride": [
+      "README.md",
+      "core/upstream/dolphin_web_core.cpp",
+      "core/upstream/dolphin_web_discio.cpp",
       "provenance/dolphin-source.lock.json",
       "provenance/dolphin-vendor-snapshot-v1.json",
+      "src/core-host.js",
+      "src/input.js",
       "src/upstream-discio-worker.js",
-      "patches/dolphin-wasm/snapshot/0066-jit-retry-deferred-blocks-and-apply-policy.patch",
-      "patches/dolphin-wasm/snapshot/0067-cached-interpreter-static-exit-links.patch",
-      "tests/cached-interpreter-static-exit-links.test.mjs",
-      "tests/jit-deferred-compile.test.mjs",
-      "tests/jit-fuse-status.test.mjs",
-      "tests/jit-pause-timing.test.mjs",
-      "tests/native/static-exit-links/build-cache.py",
-      "tests/native/static-exit-links/build-callbacks.py",
-      "tests/native/static-exit-links/build-gates.py",
-      "tests/native/static-exit-links/build-helpers.py",
-      "tests/native/static-exit-links/build-stats.py",
-      "tests/native/static-exit-links/cache.template.cpp",
-      "tests/native/static-exit-links/callback-declarations.inc",
-      "tests/native/static-exit-links/callback-state.inc",
-      "tests/native/static-exit-links/callback.template.cpp",
-      "tests/native/static-exit-links/cases.json",
-      "tests/native/static-exit-links/extract-base.py",
-      "tests/native/static-exit-links/gate.template.cpp",
-      "tests/native/static-exit-links/helper-state.inc",
-      "tests/native/static-exit-links/helper.template.cpp",
-      "tests/native/static-exit-links/run-header.py",
-      "tests/native/static-exit-links/run.py",
-      "tests/native/static-exit-links/stats.template.cpp",
-      "tests/native/static-exit-links/test-header.cpp",
-      "tests/native/static-exit-links/test-platform.h",
-      "tests/native/static-exit-links/test_support.py"
+      "src/upstream-main-thread-adapter.js",
+      "src/upstream-worker-adapter.js",
+      "src/upstream-worker-protocol.js",
+      "tests/dolphin-provenance.test.mjs",
+      "patches/dolphin-wasm/snapshot/0068-web-wiimote-input.patch"
     ]
   },
   "source": {
     "upstreamCommit": "e22551eae1c84a7e4d0b6a5c519ef4ed4ef69df1",
-    "patchSeriesSha256": "8e3a1b6101a233488aaedd1dbfc912dda4312423ea7ae44bf8d1df9bf8056d0f",
-    "vendorResultTree": "dd6f5548aa13de585ec9988130f98aa9d0ce1982",
-    "sourceLockSha256": "fe5ef1bd590bf0a2d334274880e0e85411ac50b966cb5235ae1de89b5629ff2c",
-    "vendorSnapshotSha256": "6d75bc3014904311b38bf2e3c8b284aaf8a8162294c85912ef01f1a54d82f668",
-    "localInputsSha256": "2864bb48e04d618f1c0ebdfafa75724f8619120df445cb45c615582968f90ace",
+    "patchSeriesSha256": "314568b0d8fc88e77a3df666b0f397656a9efd8ca5b5e38f28a69f8794cc05c5",
+    "vendorResultTree": "6dd47990ea3c273fa1c9d75d6b8f95657c868267",
+    "sourceLockSha256": "12f15988784295d9d95591cfd8ca818cfb170371d1ca51e4b9e03e0d12961f10",
+    "vendorSnapshotSha256": "3c36f9908b67a6955a6c572fbe959c2ca6ec566e3a048abc33534f594508453b",
+    "localInputsSha256": "a0b7594435e230d9c000487a8fc32b62347111d26d87c43bcd19f1437d6a8467",
     "localInputs": [
       {
         "path": "core/upstream/dolphin_web_core.cpp",
-        "size": 44803,
-        "sha256": "0b7220487717ebed29695b031e8779c218771926e12ffe0c102675aba7ad803f",
+        "size": 46449,
+        "sha256": "c0b6e4e1a46a9e675912030a437a953aea7fa948bd5caaa4e1d70d6145ec2857",
         "hashMode": "lf-normalized"
       },
       {
         "path": "core/upstream/dolphin_web_discio.cpp",
-        "size": 46768,
-        "sha256": "2815c46b414ff4b67a58cd55d714e1b41f9b38984023e5a0dca29a71d2a4206b",
+        "size": 50384,
+        "sha256": "484c60191a69ab71c282a7753844475405a9b7d9fb301f47f97645afa65150cb",
         "hashMode": "lf-normalized"
       },
       {
@@ -92,9 +76,9 @@
     "cargoLockSha256": "1f9dbc6ae36abff7af42626c17fb899275bcd7e134d36ec24a78ef79c8c4ce78"
   },
   "configure": {
-    "buildDir": "G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\build\\dolphin-wasm",
-    "outputDir": "G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\cores\\dolphin",
-    "nagaLibrarySha256": "f3b436b94904bdcfcb78f32b6b0627ece116931930a62a4a403d06b39f8b2b34",
+    "buildDir": "C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\build\\dolphin-wasm",
+    "outputDir": "C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\cores\\dolphin",
+    "nagaLibrarySha256": "1010969533619a17a75ebdc395bcd8c96416891a4c0a247f596ecf3583b520f9",
     "wasmMemoryPages": 24576,
     "fastBranchInline": "1",
     "fallbackMapDiagnostics": "0",
@@ -102,13 +86,13 @@
     "directWasmBlockDispatch": "0",
     "wasmCompileFlags": "-O3 -pthread -msimd128 -flto -DXXH_VECTOR=0 -DDOLPHIN_WEB_HOT_COUNTERS=0 -DDOLPHIN_WEB_INLINE_FAST_BRANCH=1 -DDOLPHIN_WEB_FALLBACK_MAP_DIAGNOSTICS=0 -DDOLPHIN_WEB_FALLBACK_MAP_BITS=16 -DDOLPHIN_WEB_DIRECT_WASM_BLOCK_DISPATCH=0",
     "cmakeArgs": [
-      "C:\\Program Files\\CMake\\bin\\cmake.exe",
+      "C:\\Users\\solim\\wasm-toolchain\\cmake\\cmake-4.3.2-windows-x86_64\\bin\\cmake.exe",
       "-S",
-      "G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\vendor\\dolphin",
+      "C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\vendor\\dolphin",
       "-B",
-      "G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\build\\dolphin-wasm",
+      "C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\build\\dolphin-wasm",
       "-GNinja",
-      "-DCMAKE_MAKE_PROGRAM=C:\\Users\\douglaswhittingham\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\ninja.exe",
+      "-DCMAKE_MAKE_PROGRAM=C:\\Users\\solim\\wasm-toolchain\\ninja\\ninja-1.13.0.data\\scripts\\ninja.exe",
       "-DCMAKE_BUILD_TYPE=Release",
       "-DCMAKE_TRY_COMPILE_CONFIGURATION=Debug",
       "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
@@ -148,71 +132,73 @@
       "-DCMAKE_CXX_FLAGS:STRING=-O3 -pthread -msimd128 -flto -DXXH_VECTOR=0 -DDOLPHIN_WEB_HOT_COUNTERS=0 -DDOLPHIN_WEB_INLINE_FAST_BRANCH=1 -DDOLPHIN_WEB_FALLBACK_MAP_DIAGNOSTICS=0 -DDOLPHIN_WEB_FALLBACK_MAP_BITS=16 -DDOLPHIN_WEB_DIRECT_WASM_BLOCK_DISPATCH=0",
       "-DCMAKE_C_FLAGS_DEBUG:STRING=-O0 -fno-lto",
       "-DCMAKE_CXX_FLAGS_DEBUG:STRING=-O0 -fno-lto",
-      "-DDOLPHIN_WASM_NAGA_WGSL_LIB=G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\tools\\naga-spirv-wgsl\\target\\wasm32-unknown-emscripten\\release\\libnaga_spirv_wgsl.a",
-      "-DDOLPHIN_WASM_JIT_CACHE_PRE_JS=G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\tools\\jit-cache-prejs.js",
+      "-DDOLPHIN_WASM_NAGA_WGSL_LIB=C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\tools\\naga-spirv-wgsl\\target\\wasm32-unknown-emscripten\\release\\libnaga_spirv_wgsl.a",
+      "-DDOLPHIN_WASM_JIT_CACHE_PRE_JS=C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\tools\\jit-cache-prejs.js",
       "-DDOLPHIN_WASM_MEMORY_PAGES=24576",
-      "-DDOLPHIN_WASM_PROJECT_ROOT=G:/wasm-dolphin/.claude/worktrees/wasm-dolphin-mkwii-webgpu-64624f",
-      "-DDOLPHIN_WASM_BRIDGE_SOURCE=G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\core\\upstream\\dolphin_web_discio.cpp",
-      "-DDOLPHIN_WASM_SHARED_SOURCE_DIR=G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\core\\upstream",
-      "-DDOLPHIN_WASM_OUTPUT_DIR=G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\cores\\dolphin",
-      "-DDOLPHIN_WASM_CORE_SOURCE=G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\core\\upstream\\dolphin_web_core.cpp",
-      "-DDOLPHIN_WASM_OUTPUT_DIR=G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\cores\\dolphin"
+      "-DDOLPHIN_WASM_PROJECT_ROOT=C:/Users/solim/homelabstuff/wasm-dolphin",
+      "-DDOLPHIN_WASM_PROFILING_FUNCS=ON",
+      "-DCMAKE_EXE_LINKER_FLAGS:STRING=--profiling-funcs",
+      "-DDOLPHIN_WASM_BRIDGE_SOURCE=C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\core\\upstream\\dolphin_web_discio.cpp",
+      "-DDOLPHIN_WASM_SHARED_SOURCE_DIR=C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\core\\upstream",
+      "-DDOLPHIN_WASM_OUTPUT_DIR=C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\cores\\dolphin",
+      "-DDOLPHIN_WASM_CORE_SOURCE=C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\core\\upstream\\dolphin_web_core.cpp",
+      "-DDOLPHIN_WASM_OUTPUT_DIR=C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\cores\\dolphin"
     ],
-    "cmakeCacheSha256": "28186f1e9053c23038f2600cb110177abbd87cc0785685a83786b6e9873a406a"
+    "cmakeCacheSha256": "37acf10f5cb70607396a26ea8b6fea6afb9ab57fa611dd47c33fae0ec804a2d2"
   },
   "artifacts": {
     "js": {
-      "path": "G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\cores\\dolphin\\dolphin-core-upstream.js",
-      "size": 266972,
-      "sha256": "7c78f3fc2207daab059af3b15c230c23d11205584cf1dfe89c65f66996e18b99",
+      "path": "C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\cores\\dolphin\\dolphin-core-upstream.js",
+      "size": 267140,
+      "sha256": "923cc8241a1ad2fbb3df59b9ba9cf2e4b2fdd9a7d86edefba8bcf10e9516ae1a",
       "hashMode": "lf-normalized"
     },
     "wasm": {
-      "path": "G:\\wasm-dolphin\\.claude\\worktrees\\wasm-dolphin-mkwii-webgpu-64624f\\cores\\dolphin\\dolphin-core-upstream.wasm",
-      "size": 15175335,
-      "sha256": "d7395b3a94080f5b7d08a0522f59096007419d117b7b0eb868246429adee6f5c",
+      "path": "C:\\Users\\solim\\homelabstuff\\wasm-dolphin\\cores\\dolphin\\dolphin-core-upstream.wasm",
+      "size": 15453792,
+      "sha256": "517dbbc4df9cea6f07dd8b2ad0752610840e8759eeaaa2ae78ccb4a35c6e8e7f",
       "hashMode": "raw"
     },
     "wasmSections": [
       {
         "id": 1,
-        "size": 2005,
-        "sha256": "6d24054d83fd883cb28bbdf641f5c1abf9f84d961567fbf65ff0726f6cbd670f"
+        "size": 2018,
+        "sha256": "23538461a4732cc42ff60d0c1966b68b5a812fe9d1c3515d49bfa93d840b6f67"
       },
       {
         "id": 2,
-        "size": 2420,
-        "sha256": "fd419fb9155de9eefe24b28448729bc077f5c49a8a7c62b612aa73889c43b17a"
+        "size": 2422,
+        "sha256": "93b420278ae183900752bd4abf2971b1b0f1100d9a68a0e1792bf724464f9dfa"
       },
       {
         "id": 3,
-        "size": 12445,
-        "sha256": "bba25739e0f224d1ed1d08bbae499174b14f5d27e84ab100b44ea5ab11d05544"
+        "size": 12923,
+        "sha256": "06c725098a83bcf7ea145526b06e65eca4a49398b0fd9cf1e62f9676f6e33612"
       },
       {
         "id": 4,
         "size": 5,
-        "sha256": "0acc3f6bce7ac99b9cc92f1cb3ed9fe909743d212794c05cd0b5d5cef65b1ca3"
+        "sha256": "8f9650c5badfcad93f8d520b34ec2a1b280a3638d9ba81e4891112c2a5b8131f"
       },
       {
         "id": 6,
         "size": 49,
-        "sha256": "67925c36629c620f56b3528f8a46899f0dee296f4c6ded932f97b924a7bc2391"
+        "sha256": "36335816bef056833efcfa4b2437592cc02a2c0ca5b6d07c202c15e2a1e6eed4"
       },
       {
         "id": 7,
-        "size": 1069,
-        "sha256": "30ed0ced306c4afd559b8e2e2bdb76fca24a002120cebdf96d2d4fc7a65e996f"
+        "size": 1081,
+        "sha256": "8d52fc159cd1caf759fe8a092afe0ceee933e5d4cae2da6e347e1b46903fc26b"
       },
       {
         "id": 8,
         "size": 2,
-        "sha256": "1b44e67c719b2a7da8da9123cef5ff1e60e04fc8086f245fc683b3da72fd26ff"
+        "sha256": "9aa410444983188950445a6b87ce04e12f8f6e0786bf66ffeb466112ecefa2ea"
       },
       {
         "id": 9,
-        "size": 22553,
-        "sha256": "1de41298c7a7b55ec3fa207b9f999e95ca309dae1baa296669355a630836b165"
+        "size": 24169,
+        "sha256": "795ebf58958c19bd7047246516e77aa9d55104fe054360e210f7473c4c29614b"
       },
       {
         "id": 12,
@@ -221,18 +207,18 @@
       },
       {
         "id": 10,
-        "size": 10464029,
-        "sha256": "073c7caffd5446828e20f546ef30998f8ccf5ebf08607a3ca00a0991455afa2c"
+        "size": 10631246,
+        "sha256": "f8d3987df1bf594eeb549e151f257e3a9bb8dff9a96c9eda6a572fbdb7da72fe"
       },
       {
         "id": 11,
-        "size": 2464942,
-        "sha256": "2e5b4f24410ea782d91824af96a8374090e39119c68cee976f1de08ce0950ea9"
+        "size": 2490031,
+        "sha256": "b05fb0d3ed251fc104538a94516540f63b2f40b2135f3e957415d105c09e0f60"
       },
       {
         "id": 0,
-        "size": 2205767,
-        "sha256": "8e39498e5d7ee57d2b0bb3a1cccba40a893bd4cf0921e08b56d58daff96ea776"
+        "size": 2289797,
+        "sha256": "a71d40cd471ee6ebd10d6c287d92d52c772a03a65c12da797edf379625667aaa"
       }
     ]
   }

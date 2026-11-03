@@ -101,6 +101,7 @@ export class EmulatorHost {
     this.softwareTevHotCaseMode = requestedSoftwareTevHotCaseMode(window.location.search);
     this.xfbFastPaths = requestedXfbFastPaths(window.location.search);
     this.correctTimeDrift = requestedCorrectTimeDrift();
+    this.wiimoteMode = requestedWiimoteMode();
     this.coreLog = requestedCoreLog();
     this.efbDiag = requestedEfbDiag();
     this.jitVerbose = new URLSearchParams(window.location.search).get("jitverbose") === "1";
@@ -331,7 +332,8 @@ export class EmulatorHost {
             presentationScale: this.presentationScale,
             oglTestClear: this.oglTestClear,
             fastSoftwareRaster: this.fastSoftwareRaster,
-            xfbFastPaths: this.xfbFastPaths
+            xfbFastPaths: this.xfbFastPaths,
+            wiimoteMode: this.wiimoteMode
           })
         : this.coreKind === "upstream"
         ? new UpstreamWorkerAdapter({
@@ -385,6 +387,7 @@ export class EmulatorHost {
             softwareTevHotCaseMode: this.softwareTevHotCaseMode,
             xfbFastPaths: this.xfbFastPaths,
             correctTimeDrift: this.correctTimeDrift,
+            wiimoteMode: this.wiimoteMode,
             coreLog: this.coreLog,
             efbDiag: this.efbDiag,
             jitVerbose: this.jitVerbose,
@@ -1376,6 +1379,15 @@ function requestedEfbDiag() {
 
 function requestedCorrectTimeDrift() {
   return new URLSearchParams(window.location.search).get("timedrift") === "1";
+}
+
+// ?wiimote=upright|sideways|off picks how keyboard/gamepad input reaches the
+// emulated Wii Remote 1. Default (auto) holds it sideways, which most
+// remote-only games ask for. Values match SetWiimoteMode in the bridge.
+const WIIMOTE_MODES = { auto: 0, upright: 1, sideways: 2, off: 3 };
+function requestedWiimoteMode() {
+  const raw = new URLSearchParams(window.location.search).get("wiimote");
+  return WIIMOTE_MODES[String(raw || "").toLowerCase()] ?? WIIMOTE_MODES.auto;
 }
 
 // Day-1 bisection knob: ?disable=cat1,cat2 → bitmask handed to the C++ JIT.

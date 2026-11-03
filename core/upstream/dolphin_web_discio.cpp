@@ -75,6 +75,27 @@ constexpr std::uint32_t INPUT_C_STICK_DOWN = 1u << 17;
 constexpr std::uint32_t INPUT_C_STICK_LEFT = 1u << 18;
 constexpr std::uint32_t INPUT_C_STICK_RIGHT = 1u << 19;
 
+// Wii Remote bits shared with the WiimoteEmu hook (patch 0068): 0-6 follow its
+// button_bitmasks order, 8-11 are directions as the player holds the remote.
+constexpr int WIIMOTE_A = 1 << 0;
+constexpr int WIIMOTE_B = 1 << 1;
+constexpr int WIIMOTE_ONE = 1 << 2;
+constexpr int WIIMOTE_TWO = 1 << 3;
+constexpr int WIIMOTE_MINUS = 1 << 4;
+constexpr int WIIMOTE_PLUS = 1 << 5;
+constexpr int WIIMOTE_UP = 1 << 8;
+constexpr int WIIMOTE_DOWN = 1 << 9;
+constexpr int WIIMOTE_LEFT = 1 << 10;
+constexpr int WIIMOTE_RIGHT = 1 << 11;
+
+constexpr int WIIMOTE_MODE_AUTO = 0;
+constexpr int WIIMOTE_MODE_UPRIGHT = 1;
+constexpr int WIIMOTE_MODE_SIDEWAYS = 2;
+constexpr int WIIMOTE_MODE_OFF = 3;
+
+// Analog stick deflection that counts as a d-pad press on the remote.
+constexpr int WIIMOTE_STICK_DPAD_THRESHOLD = 0x30;
+
 struct RootEntry
 {
   std::string name;
@@ -138,6 +159,8 @@ std::string s_video_stats = "xfb:0";
 float s_presentation_scale = 0.5f;
 std::uint32_t s_frame_signal = 0;
 std::atomic<std::uint32_t> s_input_update_count{0};
+std::atomic<int> s_wiimote_mode{WIIMOTE_MODE_AUTO};
+std::atomic<std::uint32_t> s_wiimote_poll_count{0};
 WebProfileClock::time_point s_last_xfb_profile_time{};
 std::uint64_t s_last_xfb_interval_us = 0;
 std::uint64_t s_total_xfb_interval_us = 0;
@@ -339,7 +362,8 @@ std::string PadDebugStats()
       << " buttons:" << std::hex << poll.button_mask << std::dec
       << " stick:" << static_cast<int>(poll.stick_x) << ","
       << static_cast<int>(poll.stick_y)
-      << " fastsw:" << DolphinWeb_FastSoftwareRaster();
+      << " fastsw:" << DolphinWeb_FastSoftwareRaster()
+      << " wiimote polls:" << s_wiimote_poll_count.load(std::memory_order_relaxed);
   return out.str();
 }
 
@@ -1176,6 +1200,93 @@ int DolphinWeb_GetPadStatus(int pad_num, GCPadStatus* status)
   }
 
   return 1;
+}
+
+// Remote 1 is driven by the same keyboard/gamepad state as GameCube pad 1, so
+// every input path (keys, gamepads, the shared-memory transport) reaches Wii
+// games without a separate channel.
+int DolphinWeb_GetWiimoteInput(int index)
+{
+  const int mode = s_wiimote_mode.load(std::memory_order_relaxed);
+  if (index != 0 || mode == WIIMOTE_MODE_OFF)
+    return 0;
+
+  InputStateSnapshot input;
+  {
+    const std::lock_guard<std::mutex> lock(s_input_state_mutex);
+    input = s_input_state;
+  }
+  s_wiimote_poll_count.fetch_add(1, std::memory_order_relaxed);
+
+  const std::uint32_t mask = input.mask;
+  int buttons = 0;
+  const auto map = [&](std::uint32_t pad_bits, int wiimote_bits) {
+    if (mask & pad_bits)
+      buttons |= wiimote_bits;
+  };
+  if (mode == WIIMOTE_MODE_UPRIGHT)
+  {
+    map(INPUT_A | INPUT_R, WIIMOTE_A);
+    map(INPUT_B | INPUT_L, WIIMOTE_B);
+    map(INPUT_X, WIIMOTE_ONE);
+    map(INPUT_Z, WIIMOTE_TWO);
+  }
+  else
+  {
+    // Sideways games confirm with 2 and go back with 1.
+    map(INPUT_A | INPUT_R, WIIMOTE_TWO);
+    map(INPUT_B | INPUT_L, WIIMOTE_ONE);
+    map(INPUT_X, WIIMOTE_A);
+    map(INPUT_Z, WIIMOTE_B);
+  }
+  map(INPUT_START, WIIMOTE_PLUS);
+  map(INPUT_Y, WIIMOTE_MINUS);
+
+  const int stick_x = static_cast<int>(input.stick_x) - GCPadStatus::MAIN_STICK_CENTER_X;
+  const int stick_y = static_cast<int>(input.stick_y) - GCPadStatus::MAIN_STICK_CENTER_Y;
+  if ((mask & (INPUT_D_UP | INPUT_STICK_UP)) || stick_y >= WIIMOTE_STICK_DPAD_THRESHOLD)
+    buttons |= WIIMOTE_UP;
+  if ((mask & (INPUT_D_DOWN | INPUT_STICK_DOWN)) || stick_y <= -WIIMOTE_STICK_DPAD_THRESHOLD)
+    buttons |= WIIMOTE_DOWN;
+  if ((mask & (INPUT_D_LEFT | INPUT_STICK_LEFT)) || stick_x <= -WIIMOTE_STICK_DPAD_THRESHOLD)
+    buttons |= WIIMOTE_LEFT;
+  if ((mask & (INPUT_D_RIGHT | INPUT_STICK_RIGHT)) || stick_x >= WIIMOTE_STICK_DPAD_THRESHOLD)
+    buttons |= WIIMOTE_RIGHT;
+  return buttons;
+}
+
+int DolphinWeb_GetWiimoteSideways(int index)
+{
+  if (index != 0)
+    return -1;
+  switch (s_wiimote_mode.load(std::memory_order_relaxed))
+  {
+  case WIIMOTE_MODE_UPRIGHT:
+    return 0;
+  case WIIMOTE_MODE_OFF:
+    return -1;
+  default:
+    return 1;
+  }
+}
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int SetWiimoteMode(int mode)
+{
+  if (mode < WIIMOTE_MODE_AUTO || mode > WIIMOTE_MODE_OFF)
+    return -1;
+  s_wiimote_mode.store(mode, std::memory_order_relaxed);
+  return mode;
+}
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int GetWiimoteMode()
+{
+  return s_wiimote_mode.load(std::memory_order_relaxed);
 }
 
 const char* GetGameId()

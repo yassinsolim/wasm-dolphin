@@ -1,0 +1,83 @@
+diff --git a/Source/Core/Core/HW/Wiimote.cpp b/Source/Core/Core/HW/Wiimote.cpp
+--- a/Source/Core/Core/HW/Wiimote.cpp
++++ b/Source/Core/Core/HW/Wiimote.cpp
+@@ -190,7 +190,11 @@ void Initialize(InitializeMode init_mode)
+     s_config_callback_id = Config::AddConfigChangedCallback(RefreshConfig);
+   RefreshConfig();
+ 
++#ifndef __EMSCRIPTEN__
++  // The browser has no Bluetooth backend, and the scanner's two threads would come
++  // out of the fixed pthread pool.
+   WiimoteReal::Initialize(init_mode);
++#endif
+ 
+   // Reload Wiimotes with our settings
+   auto& movie = Core::System::GetInstance().GetMovie();
+diff --git a/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp b/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp
+--- a/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp
++++ b/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp
+@@ -64,6 +64,32 @@ static const u16 dpad_bitmasks[] = {Wiimote::PAD_UP, Wiimote::PAD_DOWN, Wiimote:
+ static const u16 dpad_sideways_bitmasks[] = {Wiimote::PAD_RIGHT, Wiimote::PAD_LEFT, Wiimote::PAD_UP,
+                                              Wiimote::PAD_DOWN};
+ 
++#ifdef __EMSCRIPTEN__
++// Browser input bridge (core/upstream/dolphin_web_discio.cpp). Bits 0-6 follow
++// button_bitmasks; bits 8-11 are up/down/left/right as the player holds the remote.
++extern "C" int DolphinWeb_GetWiimoteInput(int index);
++// 1 = sideways, 0 = upright, negative = use the controller setting.
++extern "C" int DolphinWeb_GetWiimoteSideways(int index);
++
++static void ApplyWebWiimoteInput(int index, bool sideways, u16* buttons)
++{
++  const int web = DolphinWeb_GetWiimoteInput(index);
++  if (web == 0)
++    return;
++  for (int i = 0; i < 7; ++i)
++  {
++    if (web & (1 << i))
++      *buttons |= button_bitmasks[i];
++  }
++  const u16* const dpad = sideways ? dpad_sideways_bitmasks : dpad_bitmasks;
++  for (int i = 0; i < 4; ++i)
++  {
++    if (web & (1 << (8 + i)))
++      *buttons |= dpad[i];
++  }
++}
++#endif
++
+ void Wiimote::Reset()
+ {
+   const bool want_determinism = Core::WantsDeterminism();
+@@ -492,6 +518,9 @@ void Wiimote::BuildDesiredWiimoteState(DesiredWiimoteState* target_state,
+   m_dpad->GetState(&target_state->buttons.hex,
+                    IsSideways() ? dpad_sideways_bitmasks : dpad_bitmasks,
+                    m_input_override_function);
++#ifdef __EMSCRIPTEN__
++  ApplyWebWiimoteInput(m_index, IsSideways(), &target_state->buttons.hex);
++#endif
+ 
+   // Calculate accelerometer state.
+   // Calibration values are 8-bit but we want 10-bit precision, so << 2.
+@@ -680,6 +709,9 @@ ButtonData Wiimote::GetCurrentlyPressedButtons()
+   m_buttons->GetState(&buttons.hex, button_bitmasks, m_input_override_function);
+   m_dpad->GetState(&buttons.hex, IsSideways() ? dpad_sideways_bitmasks : dpad_bitmasks,
+                    m_input_override_function);
++#ifdef __EMSCRIPTEN__
++  ApplyWebWiimoteInput(m_index, IsSideways(), &buttons.hex);
++#endif
+ 
+   return buttons;
+ }
+@@ -807,6 +839,11 @@ Extension* Wiimote::GetActiveExtension() const
+ 
+ bool Wiimote::IsSideways() const
+ {
++#ifdef __EMSCRIPTEN__
++  const int web_sideways = DolphinWeb_GetWiimoteSideways(m_index);
++  if (web_sideways >= 0)
++    return web_sideways != 0;
++#endif
+   const bool sideways_modifier_toggle = m_hotkeys->GetSettingsModifier()[0];
+   const bool sideways_modifier_switch = m_hotkeys->GetSettingsModifier()[2];
+   return m_sideways_setting.GetValue() ^ sideways_modifier_toggle ^ sideways_modifier_switch;

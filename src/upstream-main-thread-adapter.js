@@ -28,7 +28,8 @@ export class UpstreamMainThreadAdapter {
     presentationScale = 1,
     oglTestClear = false,
     fastSoftwareRaster = 0,
-    xfbFastPaths = 0
+    xfbFastPaths = 0,
+    wiimoteMode = 0
   } = {}) {
     this.coreUrl = coreUrl;
     this.expectedCoreSha256 = expectedCoreSha256;
@@ -48,6 +49,7 @@ export class UpstreamMainThreadAdapter {
     this.oglTestClear = Boolean(oglTestClear);
     this.fastSoftwareRaster = Math.min(3, Math.max(0, Number(fastSoftwareRaster) || 0));
     this.xfbFastPaths = (Number(xfbFastPaths) || 0) & 3;
+    this.wiimoteMode = (Number(wiimoteMode) || 0) & 3;
     this.module = null;
     this.api = null;
     this.loaded = false;
@@ -128,6 +130,7 @@ export class UpstreamMainThreadAdapter {
     this.api.setPresentationScale?.(Number(this.presentationScale));
     this.api.setFastSoftwareRaster?.(this.fastSoftwareRaster);
     this.api.setXfbFastPaths?.(this.xfbFastPaths);
+    this.api.setWiimoteMode?.(this.wiimoteMode);
     this.api.coreInit?.();
     this.loaded = true;
     this.refreshStats();
@@ -151,6 +154,7 @@ export class UpstreamMainThreadAdapter {
       setPresentationScale: optionalCwrap("SetPresentationScale", null, ["number"]),
       setFastSoftwareRaster: optionalCwrap("SetFastSoftwareRaster", "number", ["number"]),
       setXfbFastPaths: optionalCwrap("SetXfbFastPaths", "number", ["number"]),
+      setWiimoteMode: optionalCwrap("SetWiimoteMode", "number", ["number"]),
       bootDisc: optionalCwrap("BootDisc", "number", ["string"]),
       setCorePaused: optionalCwrap("SetCorePaused", "number", ["number"]),
       resetCore: optionalCwrap("ResetCore", "number", []),

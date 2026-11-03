@@ -157,7 +157,7 @@ link. See [rendering modes](docs/rendering-modes.md) and
 |------|-------|
 | Melee boot + gameplay (software hybrid) | ✅ Playable when locally validated; speed is scene/machine dependent |
 | Broader GameCube library | ✅ Boots widely; per-game renderer defaults from two 45-disc sweeps |
-| Wii discs | ⚠️ Boot and run on the software path; no Wii Remote input yet |
+| Wii discs | ⚠️ Boot and run; emulated Wii Remote 1 (buttons only, no pointer or motion) |
 | PPC→WASM JIT with GPR register cache | ⚠️ Default-on; old `addzex` failures are fixed, benefit remains scene-dependent |
 | Presentation smoothness (pacing, fast raster) | ✅ Tunable; software rasterizer caps unique-frame rate |
 | Audio | ✅ Worker-fed/tuned audio buffering |
@@ -201,13 +201,33 @@ scene-, cache-, browser-, and machine-dependent.
 
 | Input | Keys |
 |-------|------|
-| A / B / X / Y | `X`, `Z`, `S`, `A` |
-| Start | `Enter` |
+| A / B / X / Y | `X`, `Z`, `V`, `B` |
+| Start | `Enter`, `1` |
 | L / R / Z | `Q`, `E`, `C` |
 | D-pad | Arrow keys |
 | Main stick | `W`, `A`, `S`, `D` |
 
-Standard browser gamepads are also polled. Wii Remote input is not implemented.
+Standard browser gamepads are also polled.
+
+### Wii Remote
+
+Wii discs get an emulated Wii Remote 1, held sideways by default, driven by the
+same keyboard and gamepad input:
+
+| Wii Remote | GameCube input | Keys |
+|------------|----------------|------|
+| D-pad (as held sideways) | D-pad or main stick | Arrow keys, `W` `A` `S` `D` |
+| 2 | A or R | `X`, `E` |
+| 1 | B or L | `Z`, `Q` |
+| A | X | `V` |
+| B | Z | `C` |
+| + | Start | `Enter`, `1` |
+| − | Y | `B`, `2` |
+
+Pointer (IR), motion, Home, and Nunchuk input are not implemented. Add
+`?wiimote=upright`, `?wiimote=sideways`, or `?wiimote=off` to the URL to change
+how input reaches the remote (default `auto` holds it sideways). Upright maps
+A/R to A, B/L to B, X to 1 and Z to 2; the d-pad is not rotated.
 
 ---
 
@@ -448,9 +468,9 @@ tests/                   Node unit tests
 - **The WebGPU hardware renderer is GPU- and title-dependent** — verify on your
   target GPU before relying on it; it renders black or misplaces viewports on
   some combinations.
-- **Wii support is partial.** Discs boot and run on the software path, but there
-  is no Wii Remote input yet, and the hardware path misplaces in-race viewports
-  in the titles that were checked.
+- **Wii support is partial.** Discs boot and run, and Wii Remote 1 has button
+  input, but pointer, motion, and Nunchuk input are not implemented, and the
+  hardware path misplaces in-race viewports in the titles that were checked.
 - In-browser structural limits (no fastmem trap and no SIMD emission in the
   dynamic PPC JIT) bound how close the JIT can get to native speed.
 

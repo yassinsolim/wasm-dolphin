@@ -298,8 +298,10 @@ test("committed Dolphin provenance and ABI manifests verify", () => {
   // patch, then 109. The cached-interpreter JIT patches added four paths no
   // earlier patch touched -- CachedInterpreterBlockCache.cpp/.h,
   // CachedInterpreterLink.h and WasmDeferredCompileQueue.h -- taking it to
-  // 113. Update deliberately when the series changes what it modifies.
-  assert.equal(result.vendorSnapshot.rootPaths, 113);
+  // 113. 0068 (web Wii Remote input) adds HW/Wiimote.cpp and
+  // HW/WiimoteEmu/WiimoteEmu.cpp, taking it to 115. Update deliberately when
+  // the series changes what it modifies.
+  assert.equal(result.vendorSnapshot.rootPaths, 115);
   assert.equal(result.vendorSnapshot.submodulePaths, 2);
   assert.equal(result.core.abiVersion, 1);
   assert.equal(result.core.memoryContract.jsGlue.initialPages, 24576);

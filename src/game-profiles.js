@@ -49,7 +49,10 @@ export const GAME_PROFILES = {
   // hardware averages ~44% against software's ~100% on that same state -- so
   // software stays the default on performance, not on correctness.
   RMCE01: { renderer: "software", why: "44% vs ~100% game speed; hardware renders correctly but is slower" },
-  SOUE01: { renderer: "software", why: "hardware unverified in gameplay; no Wii Remote input yet" }
+  SOUE01: { renderer: "software", why: "hardware unverified in gameplay" },
+  // On software the game logic only advances ~4 times a second (VI still at
+  // 60), so short Wii Remote taps land between its input samples and are lost.
+  ST7E01: { renderer: "hardware", why: "30 vs 4 fps; title, menus and board verified against software" }
 };
 
 // Where the GameCube disc header (and so the 6-character game id) sits in each
