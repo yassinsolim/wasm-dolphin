@@ -77,3 +77,5 @@ render.
 On the Castle Trodain board, with a cold JIT cache, hardware averaged ~72% game
 speed over a 60 s sample (range 25–108%; ~45–66% with the main board camera,
 ~100% on static screens). That still needs profiling, and is the next target.
+
+Follow-up: [st7e01-board-mem2-l1-fastmem-2026-11-03.md](st7e01-board-mem2-l1-fastmem-2026-11-03.md).

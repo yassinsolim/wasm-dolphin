@@ -25,7 +25,7 @@
       "commit": "01e0577914a75a2569c846778c2f93aa8e6feddd"
     }
   },
-  "patchSeriesSha256": "314568b0d8fc88e77a3df666b0f397656a9efd8ca5b5e38f28a69f8794cc05c5",
+  "patchSeriesSha256": "dd73e2cd89e4c376d28211a5d05fc75f766afcf86686f12cc26a285aa0514118",
   "patches": [
     {
       "order": 1,
@@ -549,6 +549,14 @@
     },
     {
       "order": 66,
+      "cwd": ".",
+      "hashMode": "lf-normalized",
+      "path": "patches/dolphin-wasm/snapshot/0069-wii-mem2-and-locked-l1-fastmem.patch",
+      "size": 26377,
+      "sha256": "960ffaa6c2346372882386bf8b9a459e543105f9f8b0e0a9efef55584777b78f"
+    },
+    {
+      "order": 67,
       "cwd": "Externals/SFML/SFML",
       "hashMode": "lf-normalized",
       "path": "patches/dolphin-wasm/submodules/0001-sfml-emscripten-config.patch",
@@ -556,7 +564,7 @@
       "sha256": "f82197a21fe982ad83f6ee7bbf5a03839b1cebd4d64da3eab11263842bf61d89"
     },
     {
-      "order": 67,
+      "order": 68,
       "cwd": "Externals/xxhash/xxHash",
       "hashMode": "lf-normalized",
       "path": "patches/dolphin-wasm/submodules/0002-xxhash-wasm-simd-scalar.patch",
